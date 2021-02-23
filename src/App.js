@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { isEmpty, size } from 'lodash';
-import shortid, { isValid } from 'shortid';
+import { addDocument, getCollection, updateDocument, deleteDocument } from "./actions";
 
 function App() {
   const [task, setTask] = useState("");
@@ -9,11 +9,19 @@ function App() {
   const [id, setId] = useState("");
   const [error, setError] = useState(null);
 
+  useEffect(()=>{
+    (async() => {
+      const result = await getCollection("tasks");
+      if(result.statusResponse){
+        setTasks(result.data);
+      }
+    })()
+  }, []);
+
   const validForm = () => {
     let isValid = true;
     setError(null);
     if(isEmpty(task)){
-      //console.log("Task empty");
       setError("Debes ingresar una tarea");
       isValid = false;
     }
@@ -21,31 +29,36 @@ function App() {
   }
 
   //Agregar tarea
-  const addTask = (e) => {
+  const addTask = async (e) => {
     e.preventDefault();
 
     if(!validForm()){
       return;
     }
     
-    console.log("Ok");
-
-    const newTask = {
-      id: shortid.generate(),
-      name: task,
+    const result = await addDocument("tasks", {name: task });
+    if(!result.statusResponse){
+      setError(result.error);
+      return;
     }
 
-    setTasks([...tasks, newTask]);
+    setTasks([...tasks, {id: result.data.id, name: task}]);
     setTask("");
 
   }
 
   //Eliminar tareas
-  const deleteTask = (id) => {
+  const deleteTask = async(id) => {
+    const result = await deleteDocument("tasks", id);
+    if(!result.statusResponse){
+      setError(result.error);
+      return;
+    }
     const filteredtask = tasks.filter(task => task.id !== id);
     setTasks(filteredtask);
   }
 
+  
   //Editar tareas
   const editTask = (theTask) =>{
     setTask(theTask.name);
@@ -53,13 +66,18 @@ function App() {
     setId(theTask.id);
   }
 
-  const saveTask = (e) => {
+  const saveTask = async(e) => {
     e.preventDefault();
     if(isEmpty(task)){
       console.log("Task empty");
       return;
     }
-    console.log("Ok");
+
+    const result = await updateDocument("tasks", id, {name: task});
+    if(!result.statusResponse){
+      setError = result.error;
+      return;
+    }
 
     const editedTasks = tasks.map(item => item.id === id ? {id, name: task} : item);
     setTasks(editedTasks);
